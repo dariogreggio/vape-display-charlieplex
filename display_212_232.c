@@ -37,7 +37,7 @@
 
 
 const char CopyrightString[]= {'D','i','s','p','l','a','y',' ','2','3','2',' ','-',' ','v',
-	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '2','7','/','0','4','/','2','5', 0 };
+	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '2','9','/','0','4','/','2','5', 0 };
 
 //const char CopyrDate[]={ 'S','/','N',' ','0','0','0','1', CR,LF,0 };
 
@@ -244,36 +244,47 @@ warm_reset:
 	
 	CounterL=0xc00;
 	CounterH=0;
+  digits[1]=0b01000000;   // boot :)
 
 	do {
 
-
     if(ByteRec) {
-      if(ByteRec=='\f') {
-        digits[0]=digits[1]=digits[2]=digits[3]=0;
-        digitPos=0;
-        }
-      else if(ByteRec=='\n' || ByteRec=='\r') {
-        digitPos=0;
-        }
-      else if(ByteRec>='0' && ByteRec<='9') {     // isdigit
-        if(digitPos<4)
-          digits[digitPos++]=ByteRec;
-        }
-      else if(ByteRec==' ') {
-        if(digitPos<4)
-          digits[digitPos++]=0;
-        }
-      else if(ByteRec=='%') {
-        digits[3] |= 0b00000100;
-        }
-      else if(ByteRec=='$') {   // be' batteria :)
-        digits[3] |= 0b00000001;
-        }
-      else if(ByteRec=='*') {   // goccia
-        digits[3] |= 0b00000010;
-        }
-      ByteRec=0;
+      switch(ByteRec) {
+        case '\f':
+          digits[0]=digits[1]=digits[2]=digits[3]=0;
+          digitPos=0;
+          break;
+        case '\n':
+        case '\r':
+          digitPos=0;
+          break;
+        case ' ':
+          if(digitPos<4)
+            digits[digitPos++]=0;
+          break;
+        case '.':     // 
+          digits[digitPos>0 ? digitPos-1 : digitPos] |= 0b10000000;   // diciamo (qua non c'è
+          break;
+        case '-':     // 
+          digits[0] |= 0b01000000;   // qua non c'è
+          break;
+        case '%':
+          digits[3] |= 0b00000100;
+          break;
+        case '$':   // be' batteria :)
+          digits[3] |= 0b00000001;
+          break;
+        case '*':   // goccia
+          digits[3] |= 0b00000010;
+          break;
+        default:
+          if(ByteRec>='0' && ByteRec<='9') {     // isdigit
+            if(digitPos<4)
+              digits[digitPos++]=ByteRec;
+            }
+          break;
+         }
+       ByteRec=0;
       }
 
 		if(!--CounterL) {					// quando il contatore e' zero...
