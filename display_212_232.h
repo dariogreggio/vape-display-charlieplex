@@ -23,8 +23,8 @@ uint8_t Do232I(void);
 
 #define BIT_TIME   104          // 9600 baud
 
-#define TMR0BASE 58						// 3.2mS 26/4/25 (prscaler 1:128
-#define TMR2BASE (65536-50000)				// 50mS (impossibile andare a 100!)
+#define TMR0BASE 157						// 3.2mS 30/4/25 (prscaler 1:64
+#define TMR2BASE 195				// 25mS (impossibile andare a 100! !)
 #define BEEP_STD_FREQ	120			// ca 4000Hz (ok per buzzer)
 
 #define SERNUM      1000

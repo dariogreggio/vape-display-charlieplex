@@ -37,7 +37,7 @@
 
 
 const char CopyrightString[]= {'D','i','s','p','l','a','y',' ','2','3','2',' ','-',' ','v',
-	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '2','9','/','0','4','/','2','5', 0 };
+	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '3','0','/','0','4','/','2','5', 0 };
 
 //const char CopyrDate[]={ 'S','/','N',' ','0','0','0','1', CR,LF,0 };
 
@@ -53,7 +53,7 @@ const uint8_t table_7seg[]={0, // .GFEDCBA
 
 
 volatile uint8_t Timer1;					// usato con Timer3 per gestire "eventi/RTC"
-uint16_t CounterL=0xc00;
+uint16_t CounterL=0x300;
 uint8_t CounterH;	
 volatile uint8_t ByteRec;
 
@@ -62,7 +62,7 @@ uint8_t digits[4],digitPos;
 
 
 
-void interrupt isr() {		// 157uS prescaler=3, 8/12/24 8MHz 12F683
+void interrupt isr() {		// 3.2mS prescaler=1:16, 30/4/25 8MHz 12F683
   static uint8_t currentdigit = 0b00000001;  // Keeps track of the multiplex
   static uint8_t bitpos=0,byteToRec=0;
 
@@ -91,22 +91,24 @@ void interrupt isr() {		// 157uS prescaler=3, 8/12/24 8MHz 12F683
 	    CHARLIE_1_A_VAL | CHARLIE_2_A_VAL | CHARLIE_3_A_VAL | CHARLIE_4_A_VAL | CHARLIE_5_A_VAL
 	     );
 	
-		GPIO = currentdigit;
-		TRISIO &= ~currentdigit;
+//		GPIO = currentdigit;
+//		TRISIO &= ~currentdigit;
 	
-	  // Here we do the bit-fiddling thats neccesary to charlieplex.
+	  // Here we do the bit-fiddling thats necessary to charlieplex.
 	  // Depending on That Which digit are active now we need to handle the situation in its own unique way.
 	  //
 	  switch(currentdigit) {
 	    case 0b00000001:
 				GPIO = CHARLIE_1_A_VAL;
 				TRISIO &= ~CHARLIE_1_A_VAL;
-			  if(digits[3] & 0b00000001) 		// batteria
+			  if(digits[3] & 0b00000001) 		// batteria/fulmine
 					TRISIO &= ~CHARLIE_5_A_VAL;
-			  if(digits[3] & 0b00000010) 		// goccia
-					TRISIO &= ~CHARLIE_4_A_VAL;
+			  if(digits[3] & 0b00000010) 		// goccia/lucchetto
+					TRISIO &= ~CHARLIE_2_A_VAL;
 			  if(digits[3] & 0b00000100) 		// %
 					TRISIO &= ~CHARLIE_3_A_VAL;
+			  if(digits[3] & 0b00001000) 		//
+					TRISIO &= ~CHARLIE_4_A_VAL;
 	      break;
 	    case 0b00000010:
 				GPIO = CHARLIE_2_A_VAL;
@@ -189,10 +191,12 @@ cold_reset:
 
   OSCCON=0b01100001;    // a 8Mhz non va, è instabile @#£$%
   OSCTUNE=0b00000000;
+#ifndef __DEBUG
 //  OSCCONbits.SCS=1;
 //	while(!OSCCONbits.HFIOFR);		// inutili...
 	while(!OSCCONbits.HTS);
   OSCCONbits.IRCF=0b111;    // boh così pare forse...
+#endif
 
   
 	TRISIO=0b00111111;						// tutto off
@@ -208,7 +212,7 @@ cold_reset:
 
 	INTCON=0;					// disabilito tutti interrupt
 
-	T2CON =0b00010100;	//1:3 postscaler, 1:1 prescaler; 
+	T2CON =0b01111111;	//1:16 postscaler, 1:16 prescaler; 
 	// WGM0=0b0101, TCCR0B<4:3> + TCCR0A<1:0>
   PR2 = TMR2BASE;
 	TMR2=0;
@@ -218,7 +222,7 @@ cold_reset:
 	CLRWDT();
 
 
- 	OPTION_REG=0b00000100;		// prescaler Timer0 1:32 NON USATO QUA; pullup; INT pin su falling edge (no usiamo IOC)
+ 	OPTION_REG=0b00000101;		// prescaler Timer0 1:64; pullup; INT pin su falling edge (no usiamo IOC)
 	CMCON0 =0x07;			// Set GP<2:0> to digital I/O
 
 	ANSEL=0b00000000;
@@ -242,11 +246,86 @@ warm_reset:
 	INTCON=0b11101000;				// GIE, PEIE, timer + GPIO
 	IOC = 0b00001000;     // GP3/MCLR per 232
 	
-	CounterL=0xc00;
+	CounterL=0x300;
 	CounterH=0;
-  digits[1]=0b01000000;   // boot :)
+  digits[2]=digits[1]=0b01000000;   // boot :)  OCCHIO seg. 2F è rotto...
 
 	do {
+    uint8_t seg,digit;
+/*		for(seg=0; seg<7; seg++) {
+			for(digit=0; digit<4; digit++) {
+				digits[digit]=1<<seg;
+				__delay_ms(100);
+				digits[digit]=0;
+				}
+			}*/
+//#define TEST_SEGMENTI
+#ifdef TEST_SEGMENTI
+#define DELAY1 2000
+#define DELAY2 1000
+		INTCON=0;
+		TRISIO=255;
+		GPIO=  0b00000001;
+		__delay_ms(DELAY1);
+		TRISIO=0b00011110;		// batteria/fulmine
+		__delay_ms(DELAY2);
+		TRISIO=0b00101110;		// (nulla)/corto con fulmine..
+		__delay_ms(DELAY2);
+		TRISIO=0b00111010;		// %
+		__delay_ms(DELAY2);
+		TRISIO=0b00111100;		// goccia/lucchetto
+		__delay_ms(DELAY2);
+
+		TRISIO=255;
+		GPIO=  0b00000010;		//
+		__delay_ms(DELAY1);
+		TRISIO=0b00011101;		// 3E
+		__delay_ms(DELAY2);
+		TRISIO=0b00101101;		// 1C
+		__delay_ms(DELAY2);
+		TRISIO=0b00111001;		// 1B
+		__delay_ms(DELAY2);
+		TRISIO=0b00111100;		// 2G
+		__delay_ms(DELAY2);
+
+		TRISIO=255;
+		GPIO=  0b00000100;
+		__delay_ms(DELAY1);
+		TRISIO=0b00011011;		// 3C
+		__delay_ms(DELAY2);
+		TRISIO=0b00101011;		// 2A
+		__delay_ms(DELAY2);
+		TRISIO=0b00111001;		// 2C
+		__delay_ms(DELAY2);
+		TRISIO=0b00111010;		// 2F ???
+		__delay_ms(DELAY2);
+
+		TRISIO=255;
+		GPIO=  0b00010000;
+		__delay_ms(DELAY1);
+		TRISIO=0b00001111;		// 3A
+		__delay_ms(DELAY2);
+		TRISIO=0b00101011;		// 2B
+		__delay_ms(DELAY2);
+		TRISIO=0b00101101;		// 2D
+		__delay_ms(DELAY2);
+		TRISIO=0b00101110;		// 2E
+		__delay_ms(DELAY2);
+
+		TRISIO=255;
+		GPIO=  0b00100000;
+		__delay_ms(DELAY1);
+		TRISIO=0b00001111;		// 3B
+		__delay_ms(DELAY2);
+		TRISIO=0b00011011;		// 3D
+		__delay_ms(DELAY2);
+		TRISIO=0b00011101;		// 3F
+		__delay_ms(DELAY2);
+		TRISIO=0b00011110;		// 3G
+		__delay_ms(DELAY2);
+
+		TRISIO=255;
+#endif
 
     if(ByteRec) {
       switch(ByteRec) {
@@ -274,7 +353,7 @@ warm_reset:
         case '$':   // be' batteria :)
           digits[3] |= 0b00000001;
           break;
-        case '*':   // goccia
+        case '*':   // goccia/lucchetto
           digits[3] |= 0b00000010;
           break;
         default:
@@ -288,7 +367,7 @@ warm_reset:
       }
 
 		if(!--CounterL) {					// quando il contatore e' zero...
-			CounterL=0x600;
+			CounterL=0x100;
 
 			CounterH--;
 
@@ -302,6 +381,33 @@ NoResCnt:
 
 ResCnt:
 //		m_LedOBit ^= 1;
+          
+/*		i++;
+//		itoa(i % 100,&buf);
+		sprintf(buf,"%03u",i % 100);
+//		sprintf(buf,"%03u",Timer1 % 100);	// test ok 25mS 30/4/25
+		digits[1]=table_7seg[buf[1]-'0'+1];
+		digits[2]=table_7seg[buf[2]-'0'+1];
+
+		if(i>=200) {
+			// add rain :) goccia/lucchetto
+			digits[0]=0;
+			digits[3]=0b00000010;
+			}
+		else if(i>=100) {
+			digits[0]=table_7seg[buf[0]-'0'+1];
+			digits[3]=0;
+			}
+		else {
+			digits[0]=0;
+			digits[3]=0;
+			}
+		if(i & 4)
+			digits[3] |= 0b00000001;		// add battery
+
+		if(i>=250)
+			i=0;
+  */
 
 
 		CLRWDT();
@@ -315,7 +421,7 @@ uint8_t Do232I(void) {								// RS232, input (8,n,1): esce in A il BYTE se C=0 
 //	uint8_t delay_232;
 
 
-//	INTCONbits.TMR0IE=0;					// disable se no disturba! anche 220V??
+//	INTCONbits.TMR0IE=0;					// disable se no disturba! 
 	// usare if(DataRdyUSART() temp=ReadUSART();
 
 	i=8;
