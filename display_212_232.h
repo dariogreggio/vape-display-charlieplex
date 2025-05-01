@@ -21,9 +21,9 @@ uint8_t Do232I(void);
 
 #define FLASH_TIME   31          // dev'essere (2^n)-1! v. sotto
 
-#define BIT_TIME   104          // 9600 baud
+#define BIT_TIME   (104-1)          // 9600 baud
 
-#define TMR0BASE 157						// 3.2mS 30/4/25 (prscaler 1:64
+#define TMR0BASE 157				// 3.2mS 1/5/25 (prescaler 1:64  (rallentato per facilitare UART sw, provare ad accelerare 1/5/25 sfarfalla un pizzico; cmq anche 3.2 pare andare
 #define TMR2BASE 195				// 25mS (impossibile andare a 100! !)
 #define BEEP_STD_FREQ	120			// ca 4000Hz (ok per buzzer)
 

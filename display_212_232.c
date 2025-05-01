@@ -46,6 +46,12 @@ const char * Copyr1="(C) Dario's Automation 2025 - G.Dar\xd\xa\x0";
 const uint8_t table_7seg[]={0, // .GFEDCBA
 															0b00111111,0b00000110,0b01011011,0b01001111,0b01100110,
 												 			0b01101101,0b01111101,0b00000111,0b01111111,0b01101111,
+													0b01000000,
+													0b01110111,0b01111100,0b00111001,0b01011110,0b01111001,0b01110001,	//A..F
+													0b00111101,0b01110110,0b00110000,0b00001110,0b01110110,0b00111000,	//G..L
+													0b00110111,0b01010100,0b01011100,0b01110011,0b01100111,0b01010000,	//M..R
+													0b01101101,0b01111000,0b00111110,0b00011100,0b00011100,0b00110110,	//S..X
+													0b01100010,0b01011011,		//Y..Z
 															0b00000100,			// il segno %
 															0b00000010,			// goccia
 															0b00000001			// batteria
@@ -62,12 +68,12 @@ uint8_t digits[4],digitPos;
 
 
 
-void interrupt isr() {		// 3.2mS prescaler=1:16, 30/4/25 8MHz 12F683
+void interrupt isr() {		// 3.2mS prescaler=1:64, 1/5/25 8MHz 12F683
   static uint8_t currentdigit = 0b00000001;  // Keeps track of the multiplex
-  static uint8_t bitpos=0,byteToRec=0;
+//  static uint8_t bitpos=0,byteToRec=0;
 
 	if(INTCONbits.GPIF) {
-    GPIO;
+//    GPIO;
     
     if(!GPIObits.GP3) {   // se scende, start!
       ByteRec=Do232I();
@@ -234,7 +240,6 @@ warm_reset:
 
 	__delay_ms(100);
 	i=0;
-  digitPos=0;
 
 	/*while(1) {
 		m_LedOBit ^= 1;
@@ -248,7 +253,9 @@ warm_reset:
 	
 	CounterL=0x300;
 	CounterH=0;
+  digits[0]=digits[3]=0;
   digits[2]=digits[1]=0b01000000;   // boot :)  OCCHIO seg. 2F è rotto...
+  digitPos=0;
 
 	do {
     uint8_t seg,digit;
@@ -328,7 +335,15 @@ warm_reset:
 #endif
 
     if(ByteRec) {
+/*		sprintf(buf,"%03u",ByteRec);
+		digits[0]=table_7seg[buf[0]-'0'+1];
+		digits[1]=table_7seg[buf[1]-'0'+1];
+		digits[2]=table_7seg[buf[2]-'0'+1];*/
       switch(ByteRec) {
+        case '\x1b':
+          // bah il mux va ma non riceve + e non pulisce... RESET();      // vabbe' :)
+          goto warm_reset;
+          break;
         case '\f':
           digits[0]=digits[1]=digits[2]=digits[3]=0;
           digitPos=0;
@@ -358,12 +373,20 @@ warm_reset:
           break;
         default:
           if(ByteRec>='0' && ByteRec<='9') {     // isdigit
-            if(digitPos<4)
+            if(digitPos<3)
               digits[digitPos++]=table_7seg[ByteRec-'0'+1];
+            }
+          else if(ByteRec>='A' && ByteRec<='Z') {     //
+            if(digitPos<3)
+              digits[digitPos++]=table_7seg[ByteRec-'A'+1+10+1];
+            }
+          else if(ByteRec>='a' && ByteRec<='z') {     //
+            if(digitPos<3)
+              digits[digitPos++]=table_7seg[ByteRec-'a'+1+10+1];
             }
           break;
          }
-       ByteRec=0;
+      ByteRec=0;
       }
 
 		if(!--CounterL) {					// quando il contatore e' zero...
@@ -418,7 +441,6 @@ ResCnt:
 
 uint8_t Do232I(void) {								// RS232, input (8,n,1): esce in A il BYTE se C=0 o C=1=errore
 	uint8_t i,temp;
-//	uint8_t delay_232;
 
 
 //	INTCONbits.TMR0IE=0;					// disable se no disturba! 
@@ -451,7 +473,10 @@ uint8_t Do232I(void) {								// RS232, input (8,n,1): esce in A il BYTE se C=0 
 		}
 #endif
 
-// ignoro stop...
+	__delay_us(BIT_TIME);
+//	__delay_us((BIT_TIME*3)/2);   // stop, faccio così per non perdere troppo tempo prima del succ. char
+	if(!GPIObits.GP3)     // stop bit
+    temp=0;     // framing error...
 
 //	INTCONbits.TMR0IE=1;					// 
 	return temp;			//FINIRE PARITA'!!!
