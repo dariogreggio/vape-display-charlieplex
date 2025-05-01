@@ -37,7 +37,7 @@
 
 
 const char CopyrightString[]= {'D','i','s','p','l','a','y',' ','2','3','2',' ','-',' ','v',
-	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '3','0','/','0','4','/','2','5', 0 };
+	VERNUMH+'0','.',VERNUML/10+'0',(VERNUML % 10)+'0', ' ','-',' ', '0','1','/','0','5','/','2','5', 0 };
 
 //const char CopyrDate[]={ 'S','/','N',' ','0','0','0','1', CR,LF,0 };
 
@@ -359,7 +359,7 @@ warm_reset:
         default:
           if(ByteRec>='0' && ByteRec<='9') {     // isdigit
             if(digitPos<4)
-              digits[digitPos++]=ByteRec;
+              digits[digitPos++]=table_7seg[ByteRec-'0'+1];
             }
           break;
          }
